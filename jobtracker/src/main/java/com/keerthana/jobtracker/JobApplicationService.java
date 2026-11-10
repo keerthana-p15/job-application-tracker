@@ -1,48 +1,38 @@
 package com.keerthana.jobtracker;
 
-import org.springframework.stereotype.Service;
-import java.util.List;
 import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
+
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service
 public class JobApplicationService {
 
     private final JobApplicationRepository repository;
+    private final UserRepository userRepository;
 
-    public JobApplicationService(JobApplicationRepository repository) {
+    public JobApplicationService(JobApplicationRepository repository,
+                                 UserRepository userRepository) {
         this.repository = repository;
+        this.userRepository = userRepository;
     }
 
-    public JobApplication add(JobApplication application) {
+    private User getUser(String email) {
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+    }
+
+    public JobApplication add(String email, JobApplication application) {
+        application.setId(null);
+        application.setUser(getUser(email));
         return repository.save(application);
     }
 
-    public List<JobApplication> getAll() {
-        return repository.findAll();
-    }
+    public List<JobApplication> search(String email, String status, String company, String sortDir) {
+        User user = getUser(email);
 
-    public JobApplication getById(Long id) {
-        return repository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Application not found with id " + id));
-    }
-
-    public JobApplication update(Long id, JobApplication updated) {
-        JobApplication existing = getById(id);
-        existing.setCompany(updated.getCompany());
-        existing.setRole(updated.getRole());
-        existing.setStatus(updated.getStatus());
-        existing.setAppliedDate(updated.getAppliedDate());
-        existing.setNotes(updated.getNotes());
-        return repository.save(existing);
-    }
-
-    public void delete(Long id) {
-        JobApplication existing = getById(id);
-        repository.delete(existing);
-    }
-    public List<JobApplication> search(String status, String company, String sortDir) {
         Sort sort = "asc".equalsIgnoreCase(sortDir)
                 ? Sort.by("appliedDate").ascending()
                 : Sort.by("appliedDate").descending();
@@ -51,19 +41,40 @@ public class JobApplicationService {
         boolean hasCompany = company != null && !company.isBlank();
 
         if (hasStatus && hasCompany) {
-            return repository.findByStatusIgnoreCaseAndCompanyContainingIgnoreCase(status, company, sort);
+            return repository.findByUserAndStatusIgnoreCaseAndCompanyContainingIgnoreCase(
+                    user, status, company, sort);
         } else if (hasStatus) {
-            return repository.findByStatusIgnoreCase(status, sort);
+            return repository.findByUserAndStatusIgnoreCase(user, status, sort);
         } else if (hasCompany) {
-            return repository.findByCompanyContainingIgnoreCase(company, sort);
+            return repository.findByUserAndCompanyContainingIgnoreCase(user, company, sort);
         }
-        return repository.findAll(sort);
+        return repository.findByUser(user, sort);
     }
 
-    public Map<String, Long> getStats() {
+    public JobApplication getById(String email, Long id) {
+        return repository.findByIdAndUser(id, getUser(email))
+                .orElseThrow(() -> new ResourceNotFoundException("Application not found with id " + id));
+    }
+
+    public JobApplication update(String email, Long id, JobApplication updated) {
+        JobApplication existing = getById(email, id);
+        existing.setCompany(updated.getCompany());
+        existing.setRole(updated.getRole());
+        existing.setStatus(updated.getStatus());
+        existing.setAppliedDate(updated.getAppliedDate());
+        existing.setNotes(updated.getNotes());
+        return repository.save(existing);
+    }
+
+    public void delete(String email, Long id) {
+        repository.delete(getById(email, id));
+    }
+
+    public Map<String, Long> getStats(String email) {
+        User user = getUser(email);
         Map<String, Long> stats = new LinkedHashMap<>();
         for (String s : List.of("Applied", "Interview", "Offer", "Rejected")) {
-            stats.put(s, repository.countByStatus(s));
+            stats.put(s, repository.countByUserAndStatus(user, s));
         }
         return stats;
     }

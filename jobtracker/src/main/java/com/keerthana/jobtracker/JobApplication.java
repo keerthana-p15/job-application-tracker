@@ -1,8 +1,10 @@
+
 package com.keerthana.jobtracker;
 
 import jakarta.persistence.*;
 import java.time.LocalDate;
 import jakarta.validation.constraints.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 public class JobApplication {
@@ -31,21 +33,66 @@ public class JobApplication {
     @Size(max = 500, message = "Notes must be at most 500 characters")
     private String notes;
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    @JsonIgnore
+    private User user;
 
-    public String getCompany() { return company; }
-    public void setCompany(String company) { this.company = company; }
+    // Getters and setters
 
-    public String getRole() { return role; }
-    public void setRole(String role) { this.role = role; }
+    public Long getId() {
+        return id;
+    }
 
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public LocalDate getAppliedDate() { return appliedDate; }
-    public void setAppliedDate(LocalDate appliedDate) { this.appliedDate = appliedDate; }
+    public String getCompany() {
+        return company;
+    }
 
-    public String getNotes() { return notes; }
-    public void setNotes(String notes) { this.notes = notes; }
+    public void setCompany(String company) {
+        this.company = company;
+    }
+
+    public String getRole() {
+        return role;
+    }
+
+    public void setRole(String role) {
+        this.role = role;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public LocalDate getAppliedDate() {
+        return appliedDate;
+    }
+
+    public void setAppliedDate(LocalDate appliedDate) {
+        this.appliedDate = appliedDate;
+    }
+
+    public String getNotes() {
+        return notes;
+    }
+
+    public void setNotes(String notes) {
+        this.notes = notes;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
+    }
 }
