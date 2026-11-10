@@ -45,4 +45,12 @@ public class GlobalExceptionHandler {
         body.put("error", "Invalid request body. Check the JSON format and date format (yyyy-MM-dd).");
         return ResponseEntity.badRequest().body(body);
     }
+    @ExceptionHandler(DuplicateResourceException.class)
+    public ResponseEntity<Map<String, Object>> handleDuplicate(DuplicateResourceException ex) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("timestamp", LocalDateTime.now());
+        body.put("status", 409);
+        body.put("error", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
 }
