@@ -3,6 +3,7 @@ package com.keerthana.jobtracker;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/applications")
@@ -16,7 +17,7 @@ public class JobApplicationController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public JobApplication add(@RequestBody JobApplication application) {
+    public JobApplication add(@Valid @RequestBody JobApplication application) {
         return service.add(application);
     }
 
@@ -31,7 +32,7 @@ public class JobApplicationController {
     }
 
     @PutMapping("/{id}")
-    public JobApplication update(@PathVariable Long id, @RequestBody JobApplication application) {
+    public JobApplication update(@PathVariable Long id, @Valid @RequestBody JobApplication application) {
         return service.update(id, application);
     }
 
