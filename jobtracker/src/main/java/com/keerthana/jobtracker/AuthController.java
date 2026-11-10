@@ -14,10 +14,14 @@ public class AuthController {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
 
-    public AuthController(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public AuthController(UserRepository userRepository,
+                          PasswordEncoder passwordEncoder,
+                          JwtService jwtService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
     }
 
     @PostMapping("/register")
@@ -39,6 +43,25 @@ public class AuthController {
         response.put("id", saved.getId());
         response.put("name", saved.getName());
         response.put("email", saved.getEmail());
+        return response;
+    }
+
+    @PostMapping("/login")
+    public Map<String, Object> login(@Valid @RequestBody LoginRequest request) {
+        String email = request.email().trim().toLowerCase();
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new InvalidCredentialsException("Invalid email or password"));
+
+        if (!passwordEncoder.matches(request.password(), user.getPassword())) {
+            throw new InvalidCredentialsException("Invalid email or password");
+        }
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("token", jwtService.generateToken(user.getEmail()));
+        response.put("type", "Bearer");
+        response.put("name", user.getName());
+        response.put("email", user.getEmail());
         return response;
     }
 }
