@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Job Application Tracker</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: "Segoe UI", Arial, sans-serif; background: #f3f5f9; margin: 0; color: #1f2937; }
+        header { background: #1f3864; color: #fff; padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; }
+        header h1 { font-size: 20px; margin: 0; }
+        main { max-width: 900px; margin: 20px auto; padding: 0 16px; }
+        .card { background: #fff; border-radius: 10px; padding: 18px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+        .card h2 { margin: 0 0 12px; font-size: 18px; }
+        input, select, textarea, button { font: inherit; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; }
+        button { background: #1f3864; color: #fff; border: none; cursor: pointer; }
+        button.secondary { background: #e2e8f0; color: #1f2937; }
+        button.danger { background: #dc2626; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+        .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; text-align: center; }
+        .stat b { display: block; font-size: 26px; color: #1f3864; }
+        .msg { color: #b91c1c; margin: 8px 0 0; min-height: 1.2em; }
+        .app { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; border-top: 1px solid #e5e7eb; padding: 12px 0; }
+        .app small { color: #6b7280; display: block; margin-top: 2px; }
+        .actions { display: flex; gap: 8px; align-items: center; }
+        .hidden { display: none; }
+        .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+        .full { grid-column: 1 / -1; }
+        .empty { color: #6b7280; padding: 12px 0; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Job Application Tracker</h1>
+    <div id="userBox" class="hidden">
+        <span id="userName"></span>
+        <button class="secondary" onclick="logout()">Log out</button>
+    </div>
+</header>
+
+<main>
+    <!-- Login / Register -->
+    <section id="authSection" class="card" style="max-width:420px;margin:40px auto;">
+        <div class="tabs">
+            <button id="loginTab" onclick="showTab('login')">Log in</button>
+            <button id="registerTab" class="secondary" onclick="showTab('register')">Register</button>
+        </div>
+        <form id="authForm" class="grid" style="grid-template-columns:1fr;">
+            <input id="authName" class="hidden" placeholder="Full name">
+            <input id="authEmail" type="email" placeholder="Email" required>
+            <input id="authPassword" type="password" placeholder="Password (min 6 characters)" required>
+            <button type="submit" id="authSubmit">Log in</button>
+        </form>
+        <p id="authMsg" class="msg"></p>
+    </section>
+
+    <!-- App -->
+    <section id="appSection" class="hidden">
+        <div class="card">
+            <h2>Overview</h2>
+            <div class="stats" id="stats"></div>
+        </div>
+
+        <div class="card">
+            <h2>Add application</h2>
+            <form id="addForm" class="grid">
+                <input id="company" placeholder="Company" required>
+                <input id="role" placeholder="Role" required>
+                <select id="status">
+                    <option>Applied</option><option>Interview</option><option>Offer</option><option>Rejected</option>
+                </select>
+                <input id="appliedDate" type="date" required>
+                <input id="notes" class="full" placeholder="Notes (optional)">
+                <button type="submit" class="full">Add application</button>
+            </form>
+            <p id="addMsg" class="msg"></p>
+        </div>
+
+        <div class="card">
+            <h2>My applications</h2>
+            <div class="grid" style="margin-bottom:8px;">
+                <input id="searchCompany" placeholder="Search company">
+                <select id="filterStatus">
+                    <option value="">All statuses</option>
+                    <option>Applied</option><option>Interview</option><option>Offer</option><option>Rejected</option>
+                </select>
+                <select id="sortDir">
+                    <option value="desc">Newest first</option>
+                    <option value="asc">Oldest first</option>
+                </select>
+            </div>
+            <div id="list"></div>
+            <p id="listMsg" class="msg"></p>
+        </div>
+    </section>
+</main>
+
+<script>
+    const STATUSES = ["Applied", "Interview", "Offer", "Rejected"];
+    let token = localStorage.getItem("token");
+    let mode = "login";
+
+    // ---------- helpers ----------
+    function el(tag, text, className) {
+        const e = document.createElement(tag);
+        if (text !== undefined) e.textContent = text;   // textContent keeps user input safe from HTML injection
+        if (className) e.className = className;
+        return e;
+    }
+
+    async function api(path, options = {}) {
+        const isAuthCall = path.startsWith("/api/auth");
+        const headers = { "Content-Type": "application/json" };
+        if (token && !isAuthCall) headers["Authorization"] = "Bearer " + token;
+
+        const res = await fetch(path, { ...options, headers });
+
+        if (res.status === 401 && !isAuthCall) {
+            logout();
+            throw new Error("Session expired. Please log in again.");
+        }
+        if (res.status === 204) return null;
+
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+            const message = data && data.details ? Object.values(data.details).join(", ")
+                : (data && data.error) || "Something went wrong";
+            throw new Error(message);
+        }
+        return data;
+    }
+
+    // ---------- auth ----------
+    function showTab(newMode) {
+        mode = newMode;
+        document.getElementById("authName").classList.toggle("hidden", mode === "login");
+        document.getElementById("authSubmit").textContent = mode === "login" ? "Log in" : "Create account";
+        document.getElementById("loginTab").className = mode === "login" ? "" : "secondary";
+        document.getElementById("registerTab").className = mode === "register" ? "" : "secondary";
+        document.getElementById("authMsg").textContent = "";
+    }
+
+    document.getElementById("authForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const msg = document.getElementById("authMsg");
+        msg.style.color = "#b91c1c";
+        msg.textContent = "";
+        const email = document.getElementById("authEmail").value;
+        const password = document.getElementById("authPassword").value;
+        try {
+            if (mode === "register") {
+                const name = document.getElementById("authName").value;
+                await api("/api/auth/register", { method: "POST", body: JSON.stringify({ name, email, password }) });
+                showTab("login");
+                msg.style.color = "#15803d";
+                msg.textContent = "Account created. Please log in.";
+                return;
+            }
+            const data = await api("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
+            token = data.token;
+            localStorage.setItem("token", token);
+            localStorage.setItem("name", data.name);
+            document.getElementById("authForm").reset();
+            showApp();
+        } catch (err) {
+            msg.textContent = err.message;
+        }
+    });
+
+    function logout() {
+        token = null;
+        localStorage.removeItem("token");
+        localStorage.removeItem("name");
+        document.getElementById("appSection").classList.add("hidden");
+        document.getElementById("userBox").classList.add("hidden");
+        document.getElementById("authSection").classList.remove("hidden");
+    }
+
+    function showApp() {
+        document.getElementById("authSection").classList.add("hidden");
+        document.getElementById("appSection").classList.remove("hidden");
+        document.getElementById("userBox").classList.remove("hidden");
+        document.getElementById("userName").textContent = localStorage.getItem("name") || "";
+        document.getElementById("appliedDate").max = new Date().toISOString().split("T")[0];
+        refresh();
+    }
+
+    // ---------- data ----------
+    async function refresh() {
+        await Promise.all([loadStats(), loadList()]);
+    }
+
+    async function loadStats() {
+        try {
+            const stats = await api("/api/applications/stats");
+            const box = document.getElementById("stats");
+            box.replaceChildren();
+            STATUSES.forEach((s) => {
+                const d = el("div", undefined, "stat");
+                d.appendChild(el("b", stats[s]));
+                d.appendChild(el("span", s));
+                box.appendChild(d);
+            });
+        } catch (err) { /* handled in api() */ }
+    }
+
+    async function loadList() {
+        const params = new URLSearchParams();
+        const company = document.getElementById("searchCompany").value.trim();
+        const status = document.getElementById("filterStatus").value;
+        if (company) params.set("company", company);
+        if (status) params.set("status", status);
+        params.set("sort", document.getElementById("sortDir").value);
+
+        const msg = document.getElementById("listMsg");
+        msg.textContent = "";
+        try {
+            const apps = await api("/api/applications?" + params.toString());
+            const list = document.getElementById("list");
+            list.replaceChildren();
+            if (apps.length === 0) {
+                list.appendChild(el("div", "No applications found.", "empty"));
+                return;
+            }
+            apps.forEach((a) => list.appendChild(renderApp(a)));
+        } catch (err) { msg.textContent = err.message; }
+    }
+
+    function renderApp(a) {
+        const row = el("div", undefined, "app");
+
+        const info = el("div");
+        info.appendChild(el("strong", a.company + " - " + a.role));
+        info.appendChild(el("small", "Applied on " + a.appliedDate));
+        if (a.notes) info.appendChild(el("small", a.notes));
+
+        const actions = el("div", undefined, "actions");
+        const select = document.createElement("select");
+        STATUSES.forEach((s) => {
+            const o = el("option", s);
+            if (s === a.status) o.selected = true;
+            select.appendChild(o);
+        });
+        select.addEventListener("change", async () => {
+            try {
+                await api("/api/applications/" + a.id, {
+                    method: "PUT",
+                    body: JSON.stringify({ ...a, status: select.value })
+                });
+                refresh();
+            } catch (err) { document.getElementById("listMsg").textContent = err.message; }
+        });
+
+        const del = el("button", "Delete", "danger");
+        del.addEventListener("click", async () => {
+            if (!confirm("Delete the application for " + a.company + "?")) return;
+            try {
+                await api("/api/applications/" + a.id, { method: "DELETE" });
+                refresh();
+            } catch (err) { document.getElementById("listMsg").textContent = err.message; }
+        });
+
+        actions.appendChild(select);
+        actions.appendChild(del);
+        row.appendChild(info);
+        row.appendChild(actions);
+        return row;
+    }
+
+    document.getElementById("addForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const msg = document.getElementById("addMsg");
+        msg.textContent = "";
+        const body = {
+            company: document.getElementById("company").value.trim(),
+            role: document.getElementById("role").value.trim(),
+            status: document.getElementById("status").value,
+            appliedDate: document.getElementById("appliedDate").value,
+            notes: document.getElementById("notes").value.trim()
+        };
+        try {
+            await api("/api/applications", { method: "POST", body: JSON.stringify(body) });
+            document.getElementById("addForm").reset();
+            refresh();
+        } catch (err) { msg.textContent = err.message; }
+    });
+
+    ["searchCompany", "filterStatus", "sortDir"].forEach((id) => {
+        document.getElementById(id).addEventListener("input", loadList);
+    });
+
+    // ---------- start ----------
+    if (token) showApp();
+</script>
+</body>
+</html>
