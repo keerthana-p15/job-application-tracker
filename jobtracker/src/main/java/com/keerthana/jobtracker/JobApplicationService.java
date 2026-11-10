@@ -2,6 +2,9 @@ package com.keerthana.jobtracker;
 
 import org.springframework.stereotype.Service;
 import java.util.List;
+import org.springframework.data.domain.Sort;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 @Service
 public class JobApplicationService {
@@ -38,5 +41,30 @@ public class JobApplicationService {
     public void delete(Long id) {
         JobApplication existing = getById(id);
         repository.delete(existing);
+    }
+    public List<JobApplication> search(String status, String company, String sortDir) {
+        Sort sort = "asc".equalsIgnoreCase(sortDir)
+                ? Sort.by("appliedDate").ascending()
+                : Sort.by("appliedDate").descending();
+
+        boolean hasStatus = status != null && !status.isBlank();
+        boolean hasCompany = company != null && !company.isBlank();
+
+        if (hasStatus && hasCompany) {
+            return repository.findByStatusIgnoreCaseAndCompanyContainingIgnoreCase(status, company, sort);
+        } else if (hasStatus) {
+            return repository.findByStatusIgnoreCase(status, sort);
+        } else if (hasCompany) {
+            return repository.findByCompanyContainingIgnoreCase(company, sort);
+        }
+        return repository.findAll(sort);
+    }
+
+    public Map<String, Long> getStats() {
+        Map<String, Long> stats = new LinkedHashMap<>();
+        for (String s : List.of("Applied", "Interview", "Offer", "Rejected")) {
+            stats.put(s, repository.countByStatus(s));
+        }
+        return stats;
     }
 }

@@ -4,6 +4,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import jakarta.validation.Valid;
+import java.util.Map;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @RestController
 @RequestMapping("/api/applications")
@@ -22,8 +24,16 @@ public class JobApplicationController {
     }
 
     @GetMapping
-    public List<JobApplication> getAll() {
-        return service.getAll();
+    public List<JobApplication> getAll(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String company,
+            @RequestParam(defaultValue = "desc") String sort) {
+        return service.search(status, company, sort);
+    }
+
+    @GetMapping("/stats")
+    public Map<String, Long> getStats() {
+        return service.getStats();
     }
 
     @GetMapping("/{id}")
