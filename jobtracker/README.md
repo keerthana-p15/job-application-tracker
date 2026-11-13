@@ -202,9 +202,12 @@ All 18 unit tests passed successfully.
 - Add password reset functionality
 - Improve the dashboard with charts
 - Add email notifications for interview reminders
+- Add integration tests with a test database
 
 ## Author
 
   **Keerthana P**
+  
   B.Tech Computer Science Engineering, Presidency University (2027)
+  
   [LinkedIn](https://linkedin.com/in/keerthana-p-cse) | [GitHub](https://github.com/keerthana-p15)
